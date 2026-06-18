@@ -1,0 +1,14 @@
+venv
+src.egg-info
+.DS_Store
+build
+env
+__pycache__
+.python-version
+.venv
+data
+shares/
+
+# Tooling local — ne pas committer
+.claude/
+_bmad/

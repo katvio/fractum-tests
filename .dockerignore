@@ -1,0 +1,15 @@
+.git/
+
+__pycache__/
+*.py[cod]
+
+data/
+shares/
+
+docker-compose.yml
+
+.venv
+venv
+.env
+
+.gitignore

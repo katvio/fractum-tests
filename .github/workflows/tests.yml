@@ -1,0 +1,49 @@
+name: Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  docker-linux:
+    name: Linux (Docker)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10  # v6.0.3
+
+      - name: Build test image
+        run: docker build -t fractum-test -f tests/Dockerfile.test .
+
+      - name: Run tests
+        run: docker run --rm fractum-test
+
+  native:
+    name: ${{ matrix.os }} (native)
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10  # v6.0.3
+
+      - name: Set up Python
+        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405  # v6.2.0
+        with:
+          python-version: "3.12.11"
+
+      - name: Install fractum
+        run: pip install -e .
+
+      - name: Install test dependencies
+        run: pip install pytest
+
+      - name: Run test suite
+        working-directory: tests
+        run: python run_tests.py
