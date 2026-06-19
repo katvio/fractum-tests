@@ -21,11 +21,6 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from src.config import VERSION
-from src.crypto import FileEncryptor
-from src.crypto.memory import SecureContext, SecureMemory
-from src.shares import ShareManager
-from src.utils import get_enhanced_random_bytes
 from fixtures import (
     BITWARDEN_VAULT_EXPORT,
     BREAK_GLASS_CREDENTIALS,
@@ -34,8 +29,14 @@ from fixtures import (
     PAYROLL_EXPORT,
 )
 
+from src.config import VERSION
+from src.crypto import FileEncryptor
+from src.crypto.memory import SecureContext, SecureMemory
+from src.shares import ShareManager
+from src.utils import get_enhanced_random_bytes
 
 # ── mlock — Linux /proc verification ─────────────────────────────────────────
+
 
 class TestMlockLinux(unittest.TestCase):
     """Verify mlock integration on Linux via /proc/self/status."""
@@ -66,7 +67,7 @@ class TestMlockLinux(unittest.TestCase):
     def test_mlock_with_large_buffer_does_not_crash(self):
         """_mlock on a 64 KB buffer must not raise (mlock silently fails if RLIMIT hit)."""
         buf = bytearray(65536)
-        SecureMemory._mlock(buf)   # no-op on RLIMIT, must not raise
+        SecureMemory._mlock(buf)  # no-op on RLIMIT, must not raise
         SecureMemory._munlock(buf)
 
     def test_mlock_vmlck_increases_or_stays_same(self):
@@ -77,8 +78,9 @@ class TestMlockLinux(unittest.TestCase):
         buf = SecureMemory.secure_bytes(4096)
         after = self._vmlck_kb()
         SecureMemory.secure_clear(buf)
-        self.assertGreaterEqual(after, before,
-                                f"VmLck decreased after mlock: {before} → {after} kB")
+        self.assertGreaterEqual(
+            after, before, f"VmLck decreased after mlock: {before} → {after} kB"
+        )
 
     def test_munlock_called_after_secure_context_exit(self):
         """_munlock must be called when SecureContext exits (VmLck must not increase net)."""
@@ -89,33 +91,41 @@ class TestMlockLinux(unittest.TestCase):
             after_enter = self._vmlck_kb()
         after_exit = self._vmlck_kb()
         # VmLck after exit must be ≤ VmLck after enter (munlock released the pages)
-        self.assertLessEqual(after_exit, after_enter,
-                             f"VmLck not released: enter={after_enter} exit={after_exit}")
+        self.assertLessEqual(
+            after_exit,
+            after_enter,
+            f"VmLck not released: enter={after_enter} exit={after_exit}",
+        )
 
 
 # ── secure_clear completeness ─────────────────────────────────────────────────
+
 
 class TestSecureClearCompleteness(unittest.TestCase):
     """secure_clear must zero every byte regardless of buffer size or external references."""
 
     def test_secure_clear_zeros_all_bytes(self):
         """Every byte of a bytearray must be 0 after secure_clear."""
-        buf = bytearray(b'DATABASE_URL=postgres://app:Zx9#mQ2@prod:5432/acme')
+        buf = bytearray(b"DATABASE_URL=postgres://app:Zx9#mQ2@prod:5432/acme")
         SecureMemory.secure_clear(buf)
-        self.assertTrue(all(b == 0 for b in buf),
-                        f"Non-zero byte found after secure_clear: {bytes(buf[:8]).hex()}...")
+        self.assertTrue(
+            all(b == 0 for b in buf),
+            f"Non-zero byte found after secure_clear: {bytes(buf[:8]).hex()}...",
+        )
 
     def test_secure_clear_zeros_via_external_reference(self):
         """A second variable pointing to the same bytearray must also see zeros."""
-        buf = bytearray(b'STRIPE_SECRET_KEY=sk_live_XXXXXXXXXXXXXXXXXXXXX')
+        buf = bytearray(b"STRIPE_SECRET_KEY=sk_live_XXXXXXXXXXXXXXXXXXXXX")
         alias = buf  # second reference, same object
         SecureMemory.secure_clear(buf)
-        self.assertTrue(all(b == 0 for b in alias),
-                        "External reference still shows non-zero bytes after secure_clear")
+        self.assertTrue(
+            all(b == 0 for b in alias),
+            "External reference still shows non-zero bytes after secure_clear",
+        )
 
     def test_secure_clear_on_memoryview_does_not_crash(self):
         """secure_clear on a memoryview must not raise, even though it clears a copy."""
-        buf = bytearray(b'GH_TOKEN=ghp_XXXXXXXXXXXXXXXXXXXXXXXXX')
+        buf = bytearray(b"GH_TOKEN=ghp_XXXXXXXXXXXXXXXXXXXXXXXXX")
         view = memoryview(buf)
         SecureMemory.secure_clear(view)  # must not raise
 
@@ -123,7 +133,9 @@ class TestSecureClearCompleteness(unittest.TestCase):
         """secure_clear on a 1 MB buffer must zero all bytes."""
         buf = bytearray(get_enhanced_random_bytes(1024 * 1024))
         non_zero_before = sum(1 for b in buf if b != 0)
-        self.assertGreater(non_zero_before, 0, "Test precondition: buffer has non-zero bytes")
+        self.assertGreater(
+            non_zero_before, 0, "Test precondition: buffer has non-zero bytes"
+        )
         SecureMemory.secure_clear(buf)
         self.assertTrue(all(b == 0 for b in buf), "1 MB buffer not fully zeroed")
 
@@ -151,11 +163,14 @@ class TestSecureClearCompleteness(unittest.TestCase):
         except RuntimeError:
             pass
         self.assertIsNotNone(captured)
-        self.assertTrue(all(b == 0 for b in captured),
-                        f"Buffer not zeroed after exception: {bytes(captured[:8]).hex()}...")
+        self.assertTrue(
+            all(b == 0 for b in captured),
+            f"Buffer not zeroed after exception: {bytes(captured[:8]).hex()}...",
+        )
 
 
 # ── key not accessible via traceback ─────────────────────────────────────────
+
 
 class TestKeyNotInTraceback(unittest.TestCase):
     """Key bytes must be unreachable after SecureContext exits, even via traceback locals."""
@@ -174,8 +189,10 @@ class TestKeyNotInTraceback(unittest.TestCase):
             captured_tb = sys.exc_info()[2]
 
         # The buffer itself must be zeroed
-        self.assertTrue(all(b == 0 for b in captured_buf),
-                        "Buffer still non-zero after context exit via exception")
+        self.assertTrue(
+            all(b == 0 for b in captured_buf),
+            "Buffer still non-zero after context exit via exception",
+        )
 
         # Any bytearray in the traceback frame locals must also be zeroed
         if captured_tb is not None:
@@ -202,13 +219,14 @@ class TestKeyNotInTraceback(unittest.TestCase):
             captured_exc = e
 
         exc_str = str(captured_exc)
-        self.assertNotIn(sentinel_hex, exc_str,
-                         "Key hex appeared in exception string")
-        self.assertNotIn(sentinel_b64, exc_str,
-                         "Key base64 appeared in exception string")
+        self.assertNotIn(sentinel_hex, exc_str, "Key hex appeared in exception string")
+        self.assertNotIn(
+            sentinel_b64, exc_str, "Key base64 appeared in exception string"
+        )
 
 
 # ── key not in decryption error messages ─────────────────────────────────────
+
 
 class TestKeyNotInErrorMessages(unittest.TestCase):
     """Decryption error messages must never contain the key in any encoding."""
@@ -231,10 +249,10 @@ class TestKeyNotInErrorMessages(unittest.TestCase):
         self.tmp.cleanup()
 
     def _assert_no_key_in_message(self, msg: str) -> None:
-        self.assertNotIn(self.key_hex, msg,
-                         f"Key hex found in error message: {msg!r}")
-        self.assertNotIn(self.key_b64, msg,
-                         f"Key base64 found in error message: {msg!r}")
+        self.assertNotIn(self.key_hex, msg, f"Key hex found in error message: {msg!r}")
+        self.assertNotIn(
+            self.key_b64, msg, f"Key base64 found in error message: {msg!r}"
+        )
 
     def test_tampered_tag_error_does_not_leak_key(self):
         """MAC failure error must not contain the decryption key."""
@@ -242,7 +260,9 @@ class TestKeyNotInErrorMessages(unittest.TestCase):
             raw = bytearray(f.read())
 
         # Flip tag bytes (nonce=16, metadata embedded)
-        import json, struct
+        import json
+        import struct
+
         with open(self.enc, "rb") as f:
             meta_len = struct.unpack(">I", f.read(4))[0]
             f.read(meta_len)
@@ -274,7 +294,9 @@ class TestKeyNotInErrorMessages(unittest.TestCase):
 
     def test_incompatible_version_error_does_not_leak_key(self):
         """Version mismatch error must not contain the key."""
-        import json, struct
+        import json
+        import struct
+
         with open(self.enc, "rb") as f:
             meta_len = struct.unpack(">I", f.read(4))[0]
             meta = json.loads(f.read(meta_len))
@@ -300,6 +322,7 @@ class TestKeyNotInErrorMessages(unittest.TestCase):
 
 
 # ── no temp files leaked ──────────────────────────────────────────────────────
+
 
 class TestNoTempFilesLeaked(unittest.TestCase):
     """FileEncryptor must not leave temp files on disk after encrypt/decrypt."""
@@ -328,8 +351,7 @@ class TestNoTempFilesLeaked(unittest.TestCase):
         FileEncryptor(key).encrypt_file(str(src), str(enc))
         after = self._snapshot_tmp()
         new_files = after - before
-        self.assertEqual(new_files, set(),
-                         f"encrypt_file left temp files: {new_files}")
+        self.assertEqual(new_files, set(), f"encrypt_file left temp files: {new_files}")
 
     def test_decrypt_leaves_no_temp_files(self):
         """FileEncryptor.decrypt_file must not create files in /tmp."""
@@ -344,8 +366,7 @@ class TestNoTempFilesLeaked(unittest.TestCase):
         FileEncryptor(key).decrypt_file(str(enc), str(out))
         after = self._snapshot_tmp()
         new_files = after - before
-        self.assertEqual(new_files, set(),
-                         f"decrypt_file left temp files: {new_files}")
+        self.assertEqual(new_files, set(), f"decrypt_file left temp files: {new_files}")
 
     def test_failed_decrypt_leaves_no_temp_files(self):
         """Failed decryption (wrong key) must not leave temp files in /tmp."""
@@ -364,8 +385,9 @@ class TestNoTempFilesLeaked(unittest.TestCase):
             pass
         after = self._snapshot_tmp()
         new_files = after - before
-        self.assertEqual(new_files, set(),
-                         f"Failed decrypt left temp files: {new_files}")
+        self.assertEqual(
+            new_files, set(), f"Failed decrypt left temp files: {new_files}"
+        )
 
     def test_output_file_not_written_on_decrypt_failure(self):
         """When decryption fails (wrong key), the output file must not be created."""
@@ -382,8 +404,9 @@ class TestNoTempFilesLeaked(unittest.TestCase):
         except ValueError:
             pass
 
-        self.assertFalse(out.exists(),
-                         "Output file must not exist after failed decryption")
+        self.assertFalse(
+            out.exists(), "Output file must not exist after failed decryption"
+        )
 
 
 if __name__ == "__main__":

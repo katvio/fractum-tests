@@ -6,17 +6,18 @@ import random
 import tempfile
 import unittest
 
-# Import from the src module
-from src.crypto import FileEncryptor
-from src.crypto.memory import SecureMemory
-from src.shares import ShareManager
-from src.utils import get_enhanced_random_bytes
 from fixtures import (
     BITWARDEN_VAULT_EXPORT,
     ENV_CREDENTIALS,
     HARDWARE_WALLET_SEED,
     QUARTERLY_REPORT,
 )
+
+# Import from the src module
+from src.crypto import FileEncryptor
+from src.crypto.memory import SecureMemory
+from src.shares import ShareManager
+from src.utils import get_enhanced_random_bytes
 
 # ANSI color codes for colored output
 GREEN = "\033[92m"
@@ -305,7 +306,9 @@ class TestShareManager(unittest.TestCase):
 
         # Test too long secret
         log_info("Testing too long secret")
-        too_long_secret = b"prod-db-password-2025-over-limit!"  # 33 bytes, exceeding 32-byte limit
+        too_long_secret = (
+            b"prod-db-password-2025-over-limit!"  # 33 bytes, exceeding 32-byte limit
+        )
         with self.assertRaises(ValueError, msg="Should reject secret > 32 bytes"):
             self.manager.generate_shares(too_long_secret, self.label)
         log_success("Correctly rejected secret > 32 bytes")
@@ -370,10 +373,14 @@ class TestFileEncryptor(unittest.TestCase):
                 f.write(content)
 
             self.encryptor.encrypt_file(src, enc)
-            self.assertTrue(os.path.exists(enc), f"Encrypted file not created for {name}")
+            self.assertTrue(
+                os.path.exists(enc), f"Encrypted file not created for {name}"
+            )
 
             self.encryptor.decrypt_file(enc, dec)
-            self.assertTrue(os.path.exists(dec), f"Decrypted file not created for {name}")
+            self.assertTrue(
+                os.path.exists(dec), f"Decrypted file not created for {name}"
+            )
 
             with open(dec, "rb") as f:
                 result = f.read()
@@ -396,18 +403,25 @@ class TestFileEncryptor(unittest.TestCase):
             f.write(b"")
 
         self.encryptor.encrypt_file(src, enc)
-        self.assertTrue(os.path.exists(enc), "Encrypted file must be created even for empty input")
+        self.assertTrue(
+            os.path.exists(enc), "Encrypted file must be created even for empty input"
+        )
 
         try:
             self.encryptor.decrypt_file(enc, dec)
             # If decrypt succeeds, roundtrip must be lossless
             with open(dec, "rb") as f:
                 result = f.read()
-            self.assertEqual(result, b"", "Roundtrip of empty file must return empty bytes")
+            self.assertEqual(
+                result, b"", "Roundtrip of empty file must return empty bytes"
+            )
         except ValueError as e:
             # Acceptable: current implementation raises on empty ciphertext
-            self.assertIn("data", str(e).lower(),
-                          f"ValueError for empty file must mention data, got: {e}")
+            self.assertIn(
+                "data",
+                str(e).lower(),
+                f"ValueError for empty file must mention data, got: {e}",
+            )
 
     def test_same_key_different_files(self):
         """Test with same key but different files (confirm unique ciphertexts)."""
@@ -474,7 +488,9 @@ class TestFileEncryptor(unittest.TestCase):
             enc_content3,
             "Encrypted content should be different even for identical plaintext",
         )
-        log_success("Identical files produce different ciphertexts (nonce randomization)")
+        log_success(
+            "Identical files produce different ciphertexts (nonce randomization)"
+        )
 
     def test_metadata_integrity(self):
         """Verify metadata integrity during encryption/decryption."""
@@ -602,7 +618,9 @@ class TestFileEncryptor(unittest.TestCase):
             "extra_field": "test_value",
         }
 
-        self.encryptor.encrypt_file(self.test_file_path, self.encrypted_file_path, metadata)
+        self.encryptor.encrypt_file(
+            self.test_file_path, self.encrypted_file_path, metadata
+        )
 
         with open(self.encrypted_file_path, "rb") as f:
             read_metadata = self.encryptor._read_metadata(f)
@@ -623,9 +641,13 @@ class TestFileEncryptor(unittest.TestCase):
 
         # Verify the file can still be decrypted correctly
         self.encryptor.decrypt_file(self.encrypted_file_path, self.decrypted_file_path)
-        with open(self.test_file_path, "rb") as f_orig, \
-             open(self.decrypted_file_path, "rb") as f_dec:
-            self.assertEqual(f_orig.read(), f_dec.read(), "Content mismatch after decrypt")
+        with (
+            open(self.test_file_path, "rb") as f_orig,
+            open(self.decrypted_file_path, "rb") as f_dec,
+        ):
+            self.assertEqual(
+                f_orig.read(), f_dec.read(), "Content mismatch after decrypt"
+            )
         log_success("Decrypt roundtrip confirmed after metadata preservation")
 
 

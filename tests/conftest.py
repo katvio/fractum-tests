@@ -13,6 +13,8 @@ if sys.version_info[:3] < _REQUIRED:
     import src.cli.commands as _cli
 
     _mock_sys = MagicMock(wraps=sys)
-    _VI = namedtuple("version_info", ["major", "minor", "micro", "releaselevel", "serial"])
+    _VI = namedtuple(
+        "version_info", ["major", "minor", "micro", "releaselevel", "serial"]
+    )
     _mock_sys.version_info = _VI(*_REQUIRED, "final", 0)
     patch("src.cli.commands.sys", _mock_sys).start()

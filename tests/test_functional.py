@@ -13,11 +13,12 @@ import unittest
 import zipfile  # Add this import at the beginning, near other imports
 from pathlib import Path
 
+from fixtures import BITWARDEN_VAULT_EXPORT, HARDWARE_WALLET_SEED, PAYROLL_EXPORT
+
 # Import from the src module
 from src.config import VERSION
 from src.crypto import FileEncryptor
 from src.shares import ShareArchiver, ShareManager
-from fixtures import BITWARDEN_VAULT_EXPORT, HARDWARE_WALLET_SEED, PAYROLL_EXPORT
 
 # ANSI color codes for colored output
 GREEN = "\033[92m"
@@ -164,6 +165,7 @@ class CLIEndToEndTests(unittest.TestCase):
         # Encrypt the file and decrypt it with the reconstructed key
         log_step("Encrypting file with original key")
         from src.crypto import FileEncryptor
+
         encrypted_file = self.test_dir / "payroll_q4_2025.csv.enc"
         decrypted_file = self.test_dir / "payroll_q4_2025.dec"
         FileEncryptor(test_key).encrypt_file(str(test_file), str(encrypted_file))
@@ -171,7 +173,9 @@ class CLIEndToEndTests(unittest.TestCase):
         log_success("File encrypted")
 
         log_step("Decrypting with reconstructed key")
-        FileEncryptor(reconstructed_key).decrypt_file(str(encrypted_file), str(decrypted_file))
+        FileEncryptor(reconstructed_key).decrypt_file(
+            str(encrypted_file), str(decrypted_file)
+        )
         with open(decrypted_file, "rb") as f:
             self.assertEqual(f.read(), test_content, "Decrypted content mismatch")
         log_success("Full encrypt/decrypt cycle verified with reconstructed key")
@@ -590,6 +594,7 @@ class CompatibilityTests(unittest.TestCase):
             self.fail(f"Failed to load cross-platform shares: {str(e)}")
 
         log_header("Cross-platform compatibility test completed successfully")
+
 
 class ErrorHandlingTests(unittest.TestCase):
     """Tests for error handling."""

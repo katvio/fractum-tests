@@ -12,24 +12,24 @@ import base64
 import hashlib
 import json
 import os
-import tempfile
 import sys
+import tempfile
 import unittest
 from pathlib import Path
 
 from click.testing import CliRunner
-
-from src.cli.commands import decrypt, encrypt
-from src.config import VERSION
-from src.crypto import FileEncryptor
-from src.shares import ShareManager
-from src.utils import get_enhanced_random_bytes
 from fixtures import (
     BREAK_GLASS_CREDENTIALS,
     ENV_CREDENTIALS,
     HARDWARE_WALLET_SEED,
     ROOT_CA_PRIVATE_KEY,
 )
+
+from src.cli.commands import decrypt, encrypt
+from src.config import VERSION
+from src.crypto import FileEncryptor
+from src.shares import ShareManager
+from src.utils import get_enhanced_random_bytes
 
 
 def _write_share(path: Path, idx: int, share_data: bytes, **extra) -> None:
@@ -88,7 +88,9 @@ class TestShareManagerErrorMessages(unittest.TestCase):
         # Mix shares from two different encryptions — reconstruction silently
         # produces garbage, but if PyCryptodome raises, the message must be readable.
         other_manager = ShareManager(3, 5)
-        other_shares = other_manager.generate_shares(get_enhanced_random_bytes(32), "other")
+        other_shares = other_manager.generate_shares(
+            get_enhanced_random_bytes(32), "other"
+        )
         mixed = [self.shares[0], other_shares[1], self.shares[2]]
         try:
             other_manager.combine_shares(mixed)
@@ -96,7 +98,10 @@ class TestShareManagerErrorMessages(unittest.TestCase):
             msg = str(e)
             self.assertNotIn("traceback", msg.lower())
             self.assertTrue(
-                any(kw in msg.lower() for kw in ["reconstruction", "corrupt", "encryption run", "failed"]),
+                any(
+                    kw in msg.lower()
+                    for kw in ["reconstruction", "corrupt", "encryption run", "failed"]
+                ),
                 f"Error message not actionable: {msg}",
             )
 
@@ -246,7 +251,15 @@ class TestCLIErrorOutput(unittest.TestCase):
         dummy.write_text("CONFIDENTIAL: production access credentials")
         result = self.runner.invoke(
             encrypt,
-            [str(dummy), "--threshold", "1", "--shares", "3", "--label", "break_glass_creds"],
+            [
+                str(dummy),
+                "--threshold",
+                "1",
+                "--shares",
+                "3",
+                "--label",
+                "break_glass_creds",
+            ],
         )
         self.assertNotEqual(result.exit_code, 0)
         combined = result.output or ""
@@ -261,7 +274,15 @@ class TestCLIErrorOutput(unittest.TestCase):
         dummy.write_text("CONFIDENTIAL: production access credentials")
         result = self.runner.invoke(
             encrypt,
-            [str(dummy), "--threshold", "5", "--shares", "3", "--label", "break_glass_creds"],
+            [
+                str(dummy),
+                "--threshold",
+                "5",
+                "--shares",
+                "3",
+                "--label",
+                "break_glass_creds",
+            ],
         )
         self.assertNotEqual(result.exit_code, 0)
 
@@ -296,7 +317,10 @@ class TestCLIErrorOutput(unittest.TestCase):
         combined = result.output or ""
         self.assertNotEqual(result.exit_code, 0, f"Should fail, output: {combined}")
         self.assertTrue(
-            any(kw in combined for kw in [str(corrupted_idx), "corrupt", "hash", corrupted_name]),
+            any(
+                kw in combined
+                for kw in [str(corrupted_idx), "corrupt", "hash", corrupted_name]
+            ),
             f"Error must identify the corrupted share, got: {combined!r}",
         )
 
@@ -396,6 +420,7 @@ class TestSecureContextOnException(unittest.TestCase):
 
 
 # ── edge-case errors (axe 3 completion) ──────────────────────────────────────
+
 
 class TestEdgeCaseErrors(unittest.TestCase):
     """Error cases not covered by the message-precision tests above.
@@ -510,7 +535,9 @@ class TestEdgeCaseErrors(unittest.TestCase):
             p.write_text(json.dumps(info))
 
             # When the CLI tries to instantiate ShareManager(3.5, ...) it must fail
-            enc_path, share_paths, _, _ = self._make_enc_and_shares(label="floattest", threshold=2, n=3)
+            enc_path, share_paths, _, _ = self._make_enc_and_shares(
+                label="floattest", threshold=2, n=3
+            )
             shares_dir = self.tmp_dir / "shares_float"
             shares_dir.mkdir()
             (shares_dir / "bad_threshold.txt").write_text(json.dumps(info))
@@ -632,8 +659,9 @@ class TestEdgeCaseErrors(unittest.TestCase):
             decrypt,
             [enc_path, "--shares-dir", str(shares_dir)],
         )
-        self.assertNotEqual(result.exit_code, 0,
-                            f"Should fail with mixed shares, got: {result.output}")
+        self.assertNotEqual(
+            result.exit_code, 0, f"Should fail with mixed shares, got: {result.output}"
+        )
 
     # ── Python version guard ─────────────────────────────────────────────────
 
@@ -647,7 +675,9 @@ class TestEdgeCaseErrors(unittest.TestCase):
         src.write_bytes(ENV_CREDENTIALS)
 
         # namedtuple inherits from tuple so comparison with (3, 12, 11) works correctly
-        _VersionInfo = namedtuple("version_info", ["major", "minor", "micro", "releaselevel", "serial"])
+        _VersionInfo = namedtuple(
+            "version_info", ["major", "minor", "micro", "releaselevel", "serial"]
+        )
         fake_vi = _VersionInfo(3, 10, 0, "final", 0)
 
         with patch("src.cli.commands.sys") as mock_sys:
@@ -660,10 +690,13 @@ class TestEdgeCaseErrors(unittest.TestCase):
             )
 
         combined = result.output or ""
-        self.assertNotEqual(result.exit_code, 0,
-                            f"Should fail on old Python, got: {combined!r}")
+        self.assertNotEqual(
+            result.exit_code, 0, f"Should fail on old Python, got: {combined!r}"
+        )
         self.assertTrue(
-            any(kw in combined.lower() for kw in ["python", "3.", "required", "version"]),
+            any(
+                kw in combined.lower() for kw in ["python", "3.", "required", "version"]
+            ),
             f"Error must mention Python version, got: {combined!r}",
         )
 

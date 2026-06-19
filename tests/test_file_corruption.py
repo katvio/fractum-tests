@@ -23,11 +23,12 @@ import tempfile
 import unittest
 from pathlib import Path
 
+from fixtures import BITWARDEN_VAULT_EXPORT
+
 from src.config import VERSION
 from src.crypto import FileEncryptor
 from src.shares import ShareManager
 from src.utils import get_enhanced_random_bytes
-from fixtures import BITWARDEN_VAULT_EXPORT
 
 
 class FileCorruptionBase(unittest.TestCase):
@@ -55,7 +56,9 @@ class FileCorruptionBase(unittest.TestCase):
     def tearDown(self):
         self.tmp.cleanup()
 
-    def _write_enc(self, header: bytes, meta: bytes, nonce: bytes, tag: bytes, ct: bytes) -> Path:
+    def _write_enc(
+        self, header: bytes, meta: bytes, nonce: bytes, tag: bytes, ct: bytes
+    ) -> Path:
         """Write a fully assembled (potentially crafted) .enc file."""
         p = self.tmp_dir / f"crafted_{len(header)}_{len(meta)}.enc"
         counter = 0
@@ -89,6 +92,7 @@ class FileCorruptionBase(unittest.TestCase):
 
 
 # ── structural truncation ─────────────────────────────────────────────────────
+
 
 class TestStructuralTruncation(FileCorruptionBase):
     """Truncated files at each boundary must each produce a distinct, named error."""
@@ -147,6 +151,7 @@ class TestStructuralTruncation(FileCorruptionBase):
 
 # ── metadata_length boundary values ──────────────────────────────────────────
 
+
 class TestMetadataLengthBoundaries(FileCorruptionBase):
     """metadata_length edge values at the 4-byte header field."""
 
@@ -182,30 +187,40 @@ class TestMetadataLengthBoundaries(FileCorruptionBase):
 
 # ── cryptographic tampering ───────────────────────────────────────────────────
 
+
 class TestCryptographicTampering(FileCorruptionBase):
     """Tampered nonce, tag, or ciphertext — all caught by GCM authentication."""
 
     def test_nonce_all_zeros_causes_mac_failure(self):
         """Nonce replaced with 16 zero bytes → GCM MAC check fails."""
         p = self._write_enc(
-            self._valid_header, self.meta_bytes,
-            b"\x00" * 16, self.tag, self.ciphertext,
+            self._valid_header,
+            self.meta_bytes,
+            b"\x00" * 16,
+            self.tag,
+            self.ciphertext,
         )
         self._expect_error(p, "MAC", "mac", "decrypt", "verify", "tag")
 
     def test_nonce_all_ones_causes_mac_failure(self):
         """Nonce replaced with 16 0xFF bytes → GCM MAC check fails."""
         p = self._write_enc(
-            self._valid_header, self.meta_bytes,
-            b"\xff" * 16, self.tag, self.ciphertext,
+            self._valid_header,
+            self.meta_bytes,
+            b"\xff" * 16,
+            self.tag,
+            self.ciphertext,
         )
         self._expect_error(p, "MAC", "mac", "decrypt", "verify", "tag")
 
     def test_tag_all_zeros_causes_authentication_failure(self):
         """GCM tag replaced with 16 zero bytes → authentication fails."""
         p = self._write_enc(
-            self._valid_header, self.meta_bytes,
-            self.nonce, b"\x00" * 16, self.ciphertext,
+            self._valid_header,
+            self.meta_bytes,
+            self.nonce,
+            b"\x00" * 16,
+            self.ciphertext,
         )
         self._expect_error(p, "MAC", "mac", "decrypt", "verify", "tag")
 
@@ -214,8 +229,11 @@ class TestCryptographicTampering(FileCorruptionBase):
         corrupted_tag = bytearray(self.tag)
         corrupted_tag[7] ^= 0x80
         p = self._write_enc(
-            self._valid_header, self.meta_bytes,
-            self.nonce, bytes(corrupted_tag), self.ciphertext,
+            self._valid_header,
+            self.meta_bytes,
+            self.nonce,
+            bytes(corrupted_tag),
+            self.ciphertext,
         )
         self._expect_error(p, "MAC", "mac", "decrypt", "verify", "tag")
 
@@ -224,8 +242,11 @@ class TestCryptographicTampering(FileCorruptionBase):
         corrupted = bytearray(self.ciphertext)
         corrupted[0] ^= 0x01
         p = self._write_enc(
-            self._valid_header, self.meta_bytes,
-            self.nonce, self.tag, bytes(corrupted),
+            self._valid_header,
+            self.meta_bytes,
+            self.nonce,
+            self.tag,
+            bytes(corrupted),
         )
         self._expect_error(p, "MAC", "mac", "decrypt", "verify", "tag")
 
@@ -234,30 +255,39 @@ class TestCryptographicTampering(FileCorruptionBase):
         corrupted = bytearray(self.ciphertext)
         corrupted[-1] ^= 0xFF
         p = self._write_enc(
-            self._valid_header, self.meta_bytes,
-            self.nonce, self.tag, bytes(corrupted),
+            self._valid_header,
+            self.meta_bytes,
+            self.nonce,
+            self.tag,
+            bytes(corrupted),
         )
         self._expect_error(p, "MAC", "mac", "decrypt", "verify", "tag")
 
     def test_ciphertext_all_zeros_causes_authentication_failure(self):
         """Ciphertext replaced with same-length zero bytes → GCM tag invalid."""
         p = self._write_enc(
-            self._valid_header, self.meta_bytes,
-            self.nonce, self.tag, b"\x00" * len(self.ciphertext),
+            self._valid_header,
+            self.meta_bytes,
+            self.nonce,
+            self.tag,
+            b"\x00" * len(self.ciphertext),
         )
         self._expect_error(p, "MAC", "mac", "decrypt", "verify", "tag")
 
     def test_swapped_nonce_and_tag_causes_authentication_failure(self):
         """Swapping nonce and tag bytes → GCM authentication fails."""
         p = self._write_enc(
-            self._valid_header, self.meta_bytes,
-            self.tag, self.nonce,  # swapped
+            self._valid_header,
+            self.meta_bytes,
+            self.tag,
+            self.nonce,  # swapped
             self.ciphertext,
         )
         self._expect_error(p, "MAC", "mac", "decrypt", "verify", "tag")
 
 
 # ── metadata content tampering ────────────────────────────────────────────────
+
 
 class TestMetadataContentTampering(FileCorruptionBase):
     """Metadata bytes altered while keeping metadata_length correct."""
@@ -269,7 +299,10 @@ class TestMetadataContentTampering(FileCorruptionBase):
         bad_meta = json.dumps(meta).encode()
         p = self._write_enc(
             len(bad_meta).to_bytes(4, "big"),
-            bad_meta, self.nonce, self.tag, self.ciphertext,
+            bad_meta,
+            self.nonce,
+            self.tag,
+            self.ciphertext,
         )
         msg = self._expect_error(p, "Incompatible version", "9.9.9")
         self.assertIn("9.9.9", msg)
@@ -280,7 +313,10 @@ class TestMetadataContentTampering(FileCorruptionBase):
         bad_meta = b"this is not json"
         p = self._write_enc(
             len(bad_meta).to_bytes(4, "big"),
-            bad_meta, self.nonce, self.tag, self.ciphertext,
+            bad_meta,
+            self.nonce,
+            self.tag,
+            self.ciphertext,
         )
         self._expect_error(p, "Corrupt metadata")
 
@@ -289,7 +325,10 @@ class TestMetadataContentTampering(FileCorruptionBase):
         bad_meta = bytes(range(128)) * 2  # 256 bytes of non-UTF-8
         p = self._write_enc(
             len(bad_meta).to_bytes(4, "big"),
-            bad_meta, self.nonce, self.tag, self.ciphertext,
+            bad_meta,
+            self.nonce,
+            self.tag,
+            self.ciphertext,
         )
         self._expect_error(p, "Corrupt metadata")
 
@@ -304,7 +343,10 @@ class TestMetadataContentTampering(FileCorruptionBase):
         tampered_meta = json.dumps(meta).encode()
         p = self._write_enc(
             len(tampered_meta).to_bytes(4, "big"),
-            tampered_meta, self.nonce, self.tag, self.ciphertext,
+            tampered_meta,
+            self.nonce,
+            self.tag,
+            self.ciphertext,
         )
         self._expect_error(p, "MAC", "mac", "decrypt", "verify", "tag")
 
@@ -313,12 +355,16 @@ class TestMetadataContentTampering(FileCorruptionBase):
         bad_meta = b'{"version": "' + VERSION.encode() + b'", "note": "\x00\x01\x02"}'
         p = self._write_enc(
             len(bad_meta).to_bytes(4, "big"),
-            bad_meta, self.nonce, self.tag, self.ciphertext,
+            bad_meta,
+            self.nonce,
+            self.tag,
+            self.ciphertext,
         )
         self._expect_error(p, "Corrupt metadata")
 
 
 # ── share key encoding error ──────────────────────────────────────────────────
+
 
 class TestShareKeyEncoding(unittest.TestCase):
     """share_key stored in the wrong encoding produces a wrong key → GCM fails."""
@@ -354,7 +400,7 @@ class TestShareKeyEncoding(unittest.TestCase):
         for idx, data in shares[:2]:
             info = {
                 "share_index": idx,
-                "share_key": data.hex(),   # hex instead of base64
+                "share_key": data.hex(),  # hex instead of base64
                 "threshold": 2,
                 "total_shares": 3,
                 # no hash field → load_shares won't detect the wrong encoding
@@ -375,8 +421,14 @@ class TestShareKeyEncoding(unittest.TestCase):
         except (ValueError, Exception):
             raised = True
 
-        self.assertTrue(raised, "Hex-encoded share_key must cause an error before producing plaintext")
-        self.assertFalse(out.exists(), "Plaintext output must not be written when share_key is corrupt")
+        self.assertTrue(
+            raised,
+            "Hex-encoded share_key must cause an error before producing plaintext",
+        )
+        self.assertFalse(
+            out.exists(),
+            "Plaintext output must not be written when share_key is corrupt",
+        )
 
     def test_share_key_with_invalid_base64_chars_raises_error(self):
         """share_key containing non-base64 characters must raise an error on load."""
