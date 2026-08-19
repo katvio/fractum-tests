@@ -116,7 +116,8 @@ def run_tests():
             else:
                 print_result(
                     False,
-                    f"{test_file}: FAILED ({len(test_result.failures)} failures, {len(test_result.errors)} errors)",
+                    f"{test_file}: FAILED ({len(test_result.failures)} failures, "
+                    f"{len(test_result.errors)} errors)",
                 )
 
         except Exception as e:
@@ -161,7 +162,8 @@ def run_tests():
                     )
                 else:
                     print(
-                        f"{RED}- {file_name}: {result['failures']} failures, {result['errors']} errors{RESET}"
+                        f"{RED}- {file_name}: {result['failures']} failures, "
+                        f"{result['errors']} errors{RESET}"
                     )
 
     overall_success = results["fail"] == 0

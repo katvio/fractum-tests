@@ -11,9 +11,6 @@ COPY packages/ /app/packages/
 # Install dependencies with testing extras
 RUN pip install --no-cache-dir -e ".[test]"
 
-# Install additional testing dependencies if needed
-RUN pip install --no-cache-dir pytest pytest-cov psutil
-
 # Create data and shares directories for testing
 RUN mkdir -p /data /app/shares && chmod 750 /data /app/shares
 

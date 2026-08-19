@@ -84,7 +84,8 @@ class TestShareManagerErrorMessages(unittest.TestCase):
         self.assertIn(str(idx), str(ctx.exception))
 
     def test_reconstruction_failure_message_is_descriptive(self):
-        """A failed reconstruction must mention corruption or wrong run, not a raw exception."""
+        """A failed reconstruction must mention corruption or wrong run, not a raw
+        exception."""
         # Mix shares from two different encryptions — reconstruction silently
         # produces garbage, but if PyCryptodome raises, the message must be readable.
         other_manager = ShareManager(3, 5)
@@ -206,13 +207,14 @@ class TestShareManagerErrorMessages(unittest.TestCase):
             self.assertIn("share_conflict.txt", str(ctx.exception))
 
     def test_no_valid_files_message(self):
-        with tempfile.TemporaryDirectory() as tmp:
+        with tempfile.TemporaryDirectory():
             with self.assertRaisesRegex(ValueError, r"[Nn]o valid"):
                 ShareManager.load_shares([])
 
 
 class TestCLIErrorOutput(unittest.TestCase):
-    """Verify that the CLI surfaces precise error messages on stderr with exit code 1."""
+    """Verify that the CLI surfaces precise error messages on stderr with exit code
+    1."""
 
     def setUp(self):
         self.runner = CliRunner()
@@ -223,7 +225,8 @@ class TestCLIErrorOutput(unittest.TestCase):
         self.tmp.cleanup()
 
     def _make_encrypted_file(self) -> tuple:
-        """Create a real encrypted file + share files. Returns (enc_path, share_paths, manager).
+        """Create a real encrypted file + share files. Returns (enc_path, share_paths,
+        manager).
 
         The source file is removed after encryption so decrypt output (plain.txt)
         does not collide with the source file when tests invoke the CLI.
@@ -382,7 +385,8 @@ class TestCLIErrorOutput(unittest.TestCase):
 
 
 class TestSecureContextOnException(unittest.TestCase):
-    """Verify that SecureContext clears the key even when an exception occurs inside it."""
+    """Verify that SecureContext clears the key even when an exception occurs inside
+    it."""
 
     def test_context_clears_buffer_on_exception(self):
         """Key buffer must be zeroed even if the body of the 'with' block raises."""
@@ -410,7 +414,7 @@ class TestSecureContextOnException(unittest.TestCase):
 
         captured = None
         with SecureMemory.secure_context(32) as buf:
-            buf[:] = b"jwt-secret:prod2025@katvio.io!!!"
+            buf[:] = b"jwt-secret:prod2025@acme.example"
             captured = buf
 
         self.assertTrue(
@@ -514,10 +518,13 @@ class TestEdgeCaseErrors(unittest.TestCase):
             try:
                 result, _ = ShareManager.load_shares([str(p)])
             except (ValueError, TypeError, KeyError):
-                pass  # any of these is acceptable — it must not crash with unhandled exception
+                # any of these is acceptable — it must not crash with unhandled
+                # exception
+                pass
 
     def test_share_with_float_threshold_causes_error(self):
-        """A share JSON with threshold=3.5 must cause an error (not a silent wrong reconstruction)."""
+        """A share JSON with threshold=3.5 must cause an error (not a silent wrong
+        reconstruction)."""
         with tempfile.TemporaryDirectory() as tmp:
             p = Path(tmp) / "float_threshold.txt"
             key = get_enhanced_random_bytes(32)
@@ -547,17 +554,19 @@ class TestEdgeCaseErrors(unittest.TestCase):
                 [enc_path, "--shares-dir", str(shares_dir)],
             )
             # Must not exit 0 and silently produce wrong output
-            # (either fails or recovers gracefully — but never corrupt plaintext without error)
-            combined = result.output or ""
+            # (either fails or recovers gracefully — but never corrupt plaintext without
+            # error)
             if result.exit_code == 0:
-                # If CLI recovered somehow, that's OK as long as output file contains correct data
+                # If CLI recovered somehow, that's OK as long as output file contains
+                # correct data
                 pass
             else:
                 # Expected: error surfaced
                 self.assertNotEqual(result.exit_code, 0)
 
     def test_share_with_negative_share_index_is_rejected(self):
-        """A share with share_index=-1 must be rejected or cause reconstruction failure."""
+        """A share with share_index=-1 must be rejected or cause reconstruction
+        failure."""
         with tempfile.TemporaryDirectory() as tmp:
             p = Path(tmp) / "neg_index.txt"
             key = get_enhanced_random_bytes(32)
@@ -575,10 +584,12 @@ class TestEdgeCaseErrors(unittest.TestCase):
             p.write_text(json.dumps(info))
 
             # load_shares loads it (index validation is Shamir's job)
-            # combine_shares with index -1 must either fail or produce wrong key (GCM catches it)
+            # combine_shares with index -1 must either fail or produce wrong key (GCM
+            # catches it)
             try:
                 result, _ = ShareManager.load_shares([str(p)])
-                # If loaded: combine with a valid share should not silently produce correct plaintext
+                # If loaded: combine with a valid share should not silently produce
+                # correct plaintext
             except (ValueError, Exception):
                 pass  # failing here is also acceptable
 
@@ -606,7 +617,8 @@ class TestEdgeCaseErrors(unittest.TestCase):
     # ── share_set_id cross-encryption mismatch ───────────────────────────────
 
     def test_shares_from_different_encryptions_cannot_decrypt(self):
-        """Mixing shares from two different encryption runs must not produce valid plaintext."""
+        """Mixing shares from two different encryption runs must not produce valid
+        plaintext."""
         # Encryption A
         key_a = get_enhanced_random_bytes(32)
         src_a = self.tmp_dir / "file_a.bin"
@@ -666,7 +678,8 @@ class TestEdgeCaseErrors(unittest.TestCase):
     # ── Python version guard ─────────────────────────────────────────────────
 
     def test_encrypt_fails_on_old_python_version(self):
-        """CLI encrypt must exit 1 with a readable error when Python is below the minimum."""
+        """CLI encrypt must exit 1 with a readable error when Python is below the
+        minimum."""
         import sys
         from collections import namedtuple
         from unittest.mock import patch

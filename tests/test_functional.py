@@ -13,7 +13,7 @@ import unittest
 import zipfile  # Add this import at the beginning, near other imports
 from pathlib import Path
 
-from fixtures import BITWARDEN_VAULT_EXPORT, HARDWARE_WALLET_SEED, PAYROLL_EXPORT
+from fixtures import BITWARDEN_VAULT_EXPORT, PAYROLL_EXPORT
 
 # Import from the src module
 from src.config import VERSION
@@ -118,7 +118,8 @@ class CLIEndToEndTests(unittest.TestCase):
         label = "salary_export_2025"
         test_key = os.urandom(32)
         log_info(
-            f"Generated random key and set parameters: threshold={threshold}, total_shares={total_shares}"
+            f"Generated random key and set parameters: threshold={threshold}, "
+            f"total_shares={total_shares}"
         )
 
         # Create shares manually
@@ -210,7 +211,8 @@ class CLIEndToEndTests(unittest.TestCase):
 
                 # Create shares manually
                 log_step(
-                    f"Creating shares with threshold={threshold}, total_shares={total_shares}"
+                    f"Creating shares with threshold={threshold}, "
+                    f"total_shares={total_shares}"
                 )
                 manager = ShareManager(threshold, total_shares)
                 shares = manager.generate_shares(test_key, label)
@@ -308,7 +310,8 @@ class CLIEndToEndTests(unittest.TestCase):
         total_shares = 5
         label = "archive_test"
         log_info(
-            f"Using parameters: threshold={threshold}, total_shares={total_shares}, label={label}"
+            f"Using parameters: threshold={threshold}, total_shares={total_shares}, "
+            f"label={label}"
         )
 
         # Generate encrypted file manually
@@ -413,7 +416,8 @@ class CLIEndToEndTests(unittest.TestCase):
         label = "interactive_test"
         test_key = os.urandom(32)
         log_info(
-            f"Using parameters: threshold={threshold}, total_shares={total_shares}, label={label}"
+            f"Using parameters: threshold={threshold}, total_shares={total_shares}, "
+            f"label={label}"
         )
 
         # Create shares directly
@@ -505,7 +509,8 @@ class CompatibilityTests(unittest.TestCase):
         label = "cross_platform_test"
         test_secret = os.urandom(32)
         log_info(
-            f"Using parameters: threshold={threshold}, total_shares={total_shares}, label={label}"
+            f"Using parameters: threshold={threshold}, total_shares={total_shares}, "
+            f"label={label}"
         )
 
         # Create simulated shares from different platforms
@@ -575,7 +580,8 @@ class CompatibilityTests(unittest.TestCase):
                 len(loaded_shares), threshold, "Incorrect number of shares loaded"
             )
             log_success(
-                f"Successfully loaded {len(loaded_shares)} shares from different platforms"
+                f"Successfully loaded {len(loaded_shares)} shares from different "
+                f"platforms"
             )
 
             # Try to reconstruct the secret
@@ -773,7 +779,8 @@ class ErrorHandlingTests(unittest.TestCase):
                     # Reset permissions to ensure cleanup works
                     os.chmod(inaccessible_dir, 0o700)  # rwx------
             except PermissionError:
-                # Skip if we can't change permissions (could happen in some environments)
+                # Skip if we can't change permissions (could happen in some
+                # environments)
                 pass
         else:
             # Windows specific test or skip

@@ -10,7 +10,8 @@ from unittest.mock import MagicMock, patch
 _REQUIRED = (3, 12, 11)
 
 if sys.version_info[:3] < _REQUIRED:
-    import src.cli.commands as _cli
+    # Imported for its side effect: the module must be loaded before it is patched.
+    import src.cli.commands  # noqa: F401
 
     _mock_sys = MagicMock(wraps=sys)
     _VI = namedtuple(

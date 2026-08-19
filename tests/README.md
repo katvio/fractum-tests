@@ -18,6 +18,10 @@ performance, security, UX modes, OS mocking) stays in the main `fractum` repo.
 | `test_file_corruption.py` | Deterministic corruption detection on `.enc` files |
 | `test_memory_security.py` | mlock, secure_clear, key leakage, temp file leakage |
 
+All fixtures in `fixtures.py` are synthetic: invented credentials, a fictional
+company ("Acme Corp"), RFC 2606 reserved domains, and the standard BIP-39
+`abandon ...` test vector. No real secret is stored in this repository.
+
 ## Test Environment Setup
 
 Before running tests, you need to set up the test environment:
@@ -54,9 +58,9 @@ python test_core_crypto.py
 To run tests in Docker:
 
 ### Build the Docker image for testing
-```
-cd fractum
-```
+
+From the repository root:
+
 ```
 docker build -t fractum-test -f tests/Dockerfile.test .
 ```

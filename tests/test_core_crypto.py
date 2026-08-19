@@ -9,7 +9,6 @@ import unittest
 from fixtures import (
     BITWARDEN_VAULT_EXPORT,
     ENV_CREDENTIALS,
-    HARDWARE_WALLET_SEED,
     QUARTERLY_REPORT,
 )
 
@@ -65,7 +64,8 @@ class TestShareManager(unittest.TestCase):
         self.label = "bitwarden_backup_jan_2025"
         self.manager = ShareManager(self.threshold, self.total_shares)
         log_info(
-            f"Created ShareManager with threshold={self.threshold}, total_shares={self.total_shares}"
+            f"Created ShareManager with threshold={self.threshold}, "
+            f"total_shares={self.total_shares}"
         )
 
     def test_share_generation_reconstruction(self):
@@ -128,11 +128,13 @@ class TestShareManager(unittest.TestCase):
                 f"Reconstruction failed with shares at indices {random_indices}",
             )
             log_success(
-                f"Combination {i + 1}: Successfully reconstructed with shares at indices {random_indices}"
+                f"Combination {i + 1}: Successfully reconstructed with shares at "
+                f"indices {random_indices}"
             )
 
     def test_threshold_enforcement(self):
-        """Verify threshold enforcement (confirm reconstruction fails with k-1 shares)."""
+        """Verify threshold enforcement (confirm reconstruction fails with k-1
+        shares)."""
         log_header("Testing threshold enforcement")
         # Generate shares
         log_info("Generating shares from test secret")
@@ -141,7 +143,8 @@ class TestShareManager(unittest.TestCase):
         # Try to reconstruct with insufficient shares (threshold - 1)
         insufficient_shares = shares[: self.threshold - 1]
         log_info(
-            f"Attempting reconstruction with {len(insufficient_shares)} shares (below threshold)"
+            f"Attempting reconstruction with {len(insufficient_shares)} shares (below "
+            f"threshold)"
         )
 
         # Should raise a ValueError when trying to combine insufficient shares
@@ -219,7 +222,8 @@ class TestShareManager(unittest.TestCase):
         log_info("Attempting reconstruction with mixed shares from different secrets")
         mixed_shares = shares1[:2] + shares2[2 : self.threshold]
 
-        # This should fail or return an incorrect value, not revealing either original secret
+        # This should fail or return an incorrect value, not revealing either original
+        # secret
         try:
             mixed_result = self.manager.combine_shares(mixed_shares)
             # Ensure the result doesn't match either secret
@@ -389,7 +393,8 @@ class TestFileEncryptor(unittest.TestCase):
             log_success(f"Roundtrip passed for {name} ({len(content)} bytes)")
 
     def test_empty_file_encrypt_raises_or_decrypts_empty(self):
-        """Encrypting an empty file must either round-trip cleanly or raise a clear ValueError.
+        """Encrypting an empty file must either round-trip cleanly or raise a clear
+        ValueError.
 
         AES-256-GCM supports zero-length plaintext, but the current implementation
         raises 'No encrypted data found' on decrypt. This test documents the behavior
@@ -610,7 +615,8 @@ class TestFileEncryptor(unittest.TestCase):
         log_success("Correctly rejected invalid key size")
 
     def test_custom_metadata_preserved(self):
-        """Verify custom fields (e.g. share_set_id) passed to encrypt_file survive in the .enc header."""
+        """Verify custom fields (e.g. share_set_id) passed to encrypt_file survive in
+        the .enc header."""
         log_header("Testing custom metadata preservation")
 
         metadata = {
