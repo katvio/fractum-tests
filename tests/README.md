@@ -17,6 +17,55 @@ performance, security, UX modes, OS mocking) stays in the main `fractum` repo.
 | `test_error_messages.py` | Error message accuracy (ShareManager, CLI, edge cases) |
 | `test_file_corruption.py` | Deterministic corruption detection on `.enc` files |
 | `test_memory_security.py` | mlock, secure_clear, key leakage, temp file leakage |
+| `test_minimal_metadata.py` | Default (minimal) share format: which fields are written, label handling, reuse and recovery |
+| `test_package_integrity.py` | `packages/` offline wheel set: digests against `CHECKSUMS.sha256`, release signature |
+| `test_properties.py` | Property-based tests (hypothesis) over splitting, reconstruction and AES-GCM |
+| `test_interactive_mode.py` | Guided CLI mode: the menu, guided encrypt and decrypt, prompt order, reuse of an existing share set |
+| `test_share_metadata.py` | `ShareMetadata.validate()` guards and the `from_share_info` fallbacks |
+
+### Known defects recorded as expected failures
+
+Three tests are marked `@unittest.expectedFailure`. They document open bugs
+without turning CI red, and they flip to an unexpected success (which fails the
+run) the day the bug is fixed, so the marker cannot be forgotten.
+
+| Test | Records |
+|------|---------|
+| `test_package_integrity.TestReleaseSignature.test_checksums_are_gpg_signed` | `packages/CHECKSUMS.sha256` is unsigned, the placeholder is still committed (katvio/fractum#31) |
+| `test_minimal_metadata.TestHighThresholdInDefaultMode.test_six_of_nine_is_recoverable` | A default-mode share set with a threshold above 5 cannot be decrypted |
+| `test_minimal_metadata.TestReusingMinimalShares.test_reuse_works_when_the_threshold_exceeds_five` | Same cause, on the `--existing-shares` path |
+
+The last two share one root cause: minimal shares carry no `total_shares`, and
+both code paths substitute the hardcoded default of 5.
+`test_share_metadata.TestFromShareInfoFallbacks.test_total_shares_falls_back_to_five_when_absent`
+pins that substitution at the level where it originates, so the mechanism is
+covered even if either of the two paths above is rewritten.
+
+### Coverage
+
+Measured with `coverage run --source=src tests/run_tests.py`. Two files drove
+the last additions:
+
+| File | Before | After |
+|------|--------|-------|
+| `src/cli/interactive.py` | 5% (128 of 135 statements never ran) | 86% |
+| `src/shares/metadata.py` | 65% (`validate()` entirely unexercised) | 100% |
+| Total | 66% | 79% |
+
+The guided mode was the largest gap in the tree, and the one furthest from the
+flag-driven tests: everything else reached `encrypt`/`decrypt` through options,
+which is not the path a user who types `fractum` with no arguments takes.
+
+What is still uncovered and worth a look next: `src/cli/commands.py` (67%) and
+the alternative share-discovery patterns in `interactive.py` (lines 105-119),
+which only fire when the first `*.*` glob finds nothing.
+
+### Optional test dependency
+
+`test_properties.py` needs `hypothesis`, part of the `test` extra
+(`pip install -e ".[test]"`). Without it the file skips itself instead of
+failing, so a bare `pip install -e .` still gives a green run with less
+coverage. Both CI jobs install the extra.
 
 All fixtures in `fixtures.py` are synthetic: invented credentials, a fictional
 company ("Acme Corp"), RFC 2606 reserved domains, and the standard BIP-39
