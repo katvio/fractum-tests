@@ -732,6 +732,10 @@ class ErrorHandlingTests(unittest.TestCase):
                 "Error message should mention insufficient shares",
             )
 
+    @unittest.skipIf(
+        hasattr(os, "geteuid") and os.geteuid() == 0,
+        "root bypasses file permissions, so the unreadable case cannot occur",
+    )
     def test_file_access_issues(self):
         """Test with file access issues."""
         # 1. Test with non-existent file

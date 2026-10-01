@@ -24,6 +24,7 @@ test below pins the mechanism itself, at the level where it originates.
 
 import unittest
 
+from src.config import VERSION
 from src.shares.metadata import ShareMetadata
 
 
@@ -32,7 +33,7 @@ class TestValidateGuards(unittest.TestCase):
     the first failure and hide the other three."""
 
     def _valid(self, **over):
-        base = dict(version="1.4.2", label="set", threshold=3, total_shares=5)
+        base = dict(version=VERSION, label="set", threshold=3, total_shares=5)
         base.update(over)
         return ShareMetadata(**base)
 
@@ -114,6 +115,13 @@ class TestFromShareInfoFallbacks(unittest.TestCase):
         with self.assertRaises(ValueError):
             m.validate()
 
+    def test_an_explicit_total_is_preferred_over_the_fallback(self):
+        """A share that does record the count keeps it."""
+        m = ShareMetadata.from_share_info(
+            {"share_index": 1, "share_key": "x", "threshold": 3, "total_shares": 9})
+        self.assertEqual(m.total_shares, 9)
+        m.validate()
+
     def test_the_version_is_read_from_the_three_shapes_in_priority_order(self):
         """Three historical layouts carry the tool version, and the order
         matters: a share holding both must be read as the newer one."""
@@ -130,13 +138,12 @@ class TestFromShareInfoFallbacks(unittest.TestCase):
     def test_a_share_with_no_version_at_all_takes_the_running_version(self):
         """The last branch of the chain. It matters because it means an
         unversioned share is treated as current rather than rejected."""
-        from src.config import VERSION
         self.assertEqual(ShareMetadata.from_share_info({}).version, VERSION)
 
     def test_round_trip_through_to_dict_preserves_every_field(self):
         """`to_dict` feeds what is written into the share. A field dropped here
         is a field the next reader falls back on."""
-        original = ShareMetadata(version="1.4.2", label="round",
+        original = ShareMetadata(version=VERSION, label="round",
                                  threshold=4, total_shares=9)
         again = ShareMetadata.from_share_info(original.to_dict())
         self.assertEqual(again.version, original.version)

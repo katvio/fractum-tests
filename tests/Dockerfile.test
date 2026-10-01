@@ -2,8 +2,13 @@ FROM python:3.12.11-slim@sha256:47ae396f09c1303b8653019811a8498470603d7ffefc29cb
 
 WORKDIR /app
 
+# gnupg drives the signature checks in test_package_integrity.py, which skip
+# themselves when gpg is absent. Installed here so they actually run in CI.
+RUN apt-get update && apt-get install -y --no-install-recommends gnupg && \
+    rm -rf /var/lib/apt/lists/*
+
 # Copy application code and tests
-COPY setup.py /app/
+COPY setup.py fractum-signing-key.asc /app/
 COPY src/ /app/src/
 COPY tests/ /app/tests/
 COPY packages/ /app/packages/

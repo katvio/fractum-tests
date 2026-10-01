@@ -671,18 +671,23 @@ class TestSecureMemory(unittest.TestCase):
         log_info("Test data initialized")
 
     def test_secure_clear_bytes(self):
-        """Test secure clearing of bytes."""
-        log_header("Testing secure clearing of bytes")
-        # FIXED: bytes are immutable, so we can't directly test clearing
-        # The function might try to delete the variable but our test
-        # retains the reference. Just verify the function runs without error.
-        data_copy = self.test_bytes
+        """bytes must be refused, not accepted with nothing happening.
 
-        # Clear the data
+        This test used to assert only that no exception was raised, with a comment
+        explaining that bytes are immutable so clearing cannot be checked. That
+        contract was satisfied by a call that wiped a throwaway copy and left the
+        original intact, which is what four live call sites on key material were
+        doing. secure_clear now refuses bytes outright.
+        """
+        log_header("Testing that bytes are refused rather than silently ignored")
+        original = self.test_bytes
+
         log_info("Clearing bytes object")
-        SecureMemory.secure_clear(data_copy)
-        log_success("Bytes clearing completed without error")
-        # Test passes if no exception is raised
+        with self.assertRaises(TypeError):
+            SecureMemory.secure_clear(original)
+        self.assertEqual(original, self.test_bytes,
+                         "bytes must be left untouched: they cannot be wiped")
+        log_success("bytes refused, original intact")
 
     def test_secure_clear_bytearray(self):
         """Test secure clearing of bytearray."""

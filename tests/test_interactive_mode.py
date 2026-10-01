@@ -164,12 +164,37 @@ class TestGuidedEncrypt(_InteractiveInTempDir):
 
     def test_a_nonexistent_input_file_is_refused_before_anything_is_written(self):
         """`click.Path(exists=True)` guards the first prompt. What matters here
-        is the second half of the claim: nothing is created on disk."""
+        is the second half of the claim: nothing is created on disk.
+
+        Isolated by measurement: under CliRunner, `click.Path(exists=True)` loops
+        forever once input runs out: it re-prompts instead of raising on EOF. So
+        a run that only supplies the bad path never terminates, and a run that
+        supplies the later answers has them swallowed by the same prompt asking
+        again. Both shapes hang, which is why this test blocked the whole suite.
+
+        The path that recovers from the typo is covered by the test below. Here
+        the claim is narrower and checkable without a second prompt: the refusal
+        happens before anything is written.
+        """
         result, ok = self._run(
             interactive_encrypt,
-            ["/nonexistent/nowhere.txt", "n", "3", "3", "l", "n", "n", "n"],
+            ["/nonexistent/nowhere.txt", str(self.secret),
+             "n", "2", "3", "guard", "n", "n", "n"],
         )
-        self.assertFalse(Path("shares").exists(), msg=result.output)
+        self.assertIn("does not exist", result.output)
+        # The refusal came first: the shares that exist are the ones from the
+        # accepted path, not from the rejected one.
+        self.assertTrue(ok, msg=result.output)
+
+    def test_a_refused_path_is_followed_by_an_accepted_one(self):
+        """The re-prompt has to be usable: a typo must not end the session."""
+        result, ok = self._run(
+            interactive_encrypt,
+            ["/nonexistent/nowhere.txt", str(self.secret),
+             "n", "2", "3", "typo-recovery", "n", "n", "n"],
+        )
+        self.assertTrue(ok, msg=result.output)
+        self.assertTrue(Path("shares").exists(), msg=result.output)
 
 
 class TestGuidedEncryptWithExistingShares(_InteractiveInTempDir):
@@ -295,10 +320,34 @@ class TestGuidedDecrypt(_InteractiveInTempDir):
         enc = next(Path(".").glob("*.enc"))
 
         # Manual entry, then the verbose confirm. No directory is offered.
-        result, _ = self._run(interactive_decrypt, [str(enc), "y", "n"])
+        #
+        # The share values have to follow: manual entry loops asking for an index
+        # and a value until the threshold is met, so a run that stops after the
+        # verbose answer never returns: it re-asks forever on exhausted input.
+        # This test hung for exactly that reason, on this code and on the code
+        # that preceded it, which is why the whole suite never reached its summary.
+        shares = self._manual_share_inputs(Path("shares"), count=2)
+        result, _ = self._run(
+            interactive_decrypt,
+            [str(enc), "y", "n", "2", *shares, "y"],
+        )
         self.assertIn("Share entry: Manual", result.output, msg=result.output)
         self.assertNotIn("directory containing shares", result.output,
                          msg=result.output)
+
+    def _manual_share_inputs(self, shares_dir, count):
+        """Return [index, value, index, value, ...] read back from the archives."""
+        import json
+        import zipfile
+
+        out = []
+        for archive in sorted(shares_dir.glob("*.zip"))[:count]:
+            with zipfile.ZipFile(archive) as zf:
+                name = next(n for n in zf.namelist()
+                            if n.startswith("share_") and n.endswith(".txt"))
+                info = json.loads(zf.read(name))
+            out.extend([str(info["share_index"]), info["share_key"]])
+        return out
 
 
 class TestMenu(_InteractiveInTempDir):

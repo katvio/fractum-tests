@@ -460,6 +460,10 @@ class TestEdgeCaseErrors(unittest.TestCase):
     # ── permission errors ────────────────────────────────────────────────────
 
     @unittest.skipIf(sys.platform == "win32", "chmod has no effect on Windows")
+    @unittest.skipIf(
+        hasattr(os, "geteuid") and os.geteuid() == 0,
+        "root bypasses file permissions, so the unreadable case cannot occur",
+    )
     def test_decrypt_unreadable_enc_file_exits_1(self):
         """CLI decrypt must exit 1 when the .enc file has no read permission."""
         enc_path, share_paths, _, _ = self._make_enc_and_shares()
@@ -479,6 +483,10 @@ class TestEdgeCaseErrors(unittest.TestCase):
             os.chmod(enc_path, 0o644)
 
     @unittest.skipIf(sys.platform == "win32", "chmod has no effect on Windows")
+    @unittest.skipIf(
+        hasattr(os, "geteuid") and os.geteuid() == 0,
+        "root bypasses file permissions, so the unreadable case cannot occur",
+    )
     def test_encrypt_input_file_unreadable_exits_1(self):
         """CLI encrypt must exit 1 when the input file has no read permission."""
         src = self.tmp_dir / "secret.bin"

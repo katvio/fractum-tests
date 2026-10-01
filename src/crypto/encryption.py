@@ -1,4 +1,5 @@
 import json
+import os
 import time
 from typing import Any, Dict, Optional, Union
 
@@ -37,6 +38,26 @@ class FileEncryptor:
 
         return metadata
 
+    @staticmethod
+    def _parse_version(version_str: Any) -> Optional[tuple]:
+        try:
+            return tuple(int(part) for part in str(version_str).split("."))
+        except (ValueError, AttributeError):
+            return None
+
+    def _is_newer_version(self, file_version: Any) -> bool:
+        """True only if file_version is a strictly newer, parseable version than this build.
+
+        The .enc binary layout (length-prefixed metadata + nonce + tag + ciphertext) has been
+        stable across 1.0.0-1.4.0, so older/equal versions remain decryptable — only a file
+        from a future version this build doesn't understand is rejected.
+        """
+        current = self._parse_version(self.version)
+        incoming = self._parse_version(file_version)
+        if current is None or incoming is None:
+            return False
+        return incoming > current
+
     def encrypt_file(
         self,
         input_path: str,
@@ -65,6 +86,7 @@ class FileEncryptor:
             ciphertext, tag = cipher.encrypt_and_digest(data)
 
             with open(output_path, "wb") as f:
+                os.chmod(output_path, 0o600)
                 f.write(len(metadata_bytes).to_bytes(4, "big"))
                 f.write(metadata_bytes)
                 f.write(cipher.nonce)
@@ -93,10 +115,11 @@ class FileEncryptor:
                 except (json.JSONDecodeError, UnicodeDecodeError) as e:
                     raise ValueError(f"Corrupt metadata — json parse error: {e}")
 
-                if metadata.get("version", self.version) != self.version:
+                file_version = metadata.get("version", self.version)
+                if self._is_newer_version(file_version):
                     raise ValueError(
-                        f"Incompatible version: expected {self.version}, "
-                        f"found {metadata.get('version')}"
+                        f"Incompatible version: file was encrypted with Fractum {file_version}, "
+                        f"which is newer than this build ({self.version}) — please upgrade Fractum"
                     )
 
                 nonce = f.read(16)
@@ -119,6 +142,9 @@ class FileEncryptor:
                 raise ValueError("Decrypted data is empty")
 
             with open(output_path, "wb") as f:
+                # Le fichier reconstitue est le secret lui-meme : il ne doit pas
+                # heriter d un umask permissif.
+                os.chmod(output_path, 0o600)
                 f.write(data)
 
         except (ValueError, IOError) as e:

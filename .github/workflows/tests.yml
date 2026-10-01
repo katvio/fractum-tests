@@ -47,7 +47,10 @@ jobs:
           python-version: "3.12.10"
 
       - name: Install fractum
-        run: pip install -e . --ignore-requires-python
+        # The [test] extra pulls hypothesis, which drives test_properties.py.
+        # Without it that suite skips itself and the property coverage would be
+        # silently Linux-only.
+        run: pip install -e ".[test]" --ignore-requires-python
 
       - name: Run test suite
         working-directory: tests
