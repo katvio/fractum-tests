@@ -43,7 +43,7 @@ Windows on every push and pull request:
 | [`tests/test_memory_security.py`](tests/test_memory_security.py) | 21 | `mlock`, buffer zeroing on normal exit and on exception, key material leakage, temporary file leakage |
 | [`tests/test_core_crypto.py`](tests/test_core_crypto.py) | 18 | `ShareManager`, `FileEncryptor` and `SecureMemory` unit behaviour |
 | [`tests/test_functional.py`](tests/test_functional.py) | 9 | End-to-end CLI flows, K-of-N threshold combinations, self-contained archive creation |
-| [`tests/test_minimal_metadata.py`](tests/test_minimal_metadata.py) | 25 | What the default share format writes and omits, the label echoed then dropped (katvio/fractum#32), and the thresholds above five that the default format cannot recover (expected failures in 1.4.2) |
+| [`tests/test_minimal_metadata.py`](tests/test_minimal_metadata.py) | 25 | What the default share format writes and omits, the label echoed then dropped (katvio/fractum#32), and thresholds above five, which the default format could not recover before 1.4.2 |
 | [`tests/test_properties.py`](tests/test_properties.py) | 18 | Property-based checks with hypothesis: any threshold-sized subset reconstructs, fewer is refused, AES-GCM round trip and tamper detection over arbitrary inputs |
 | [`tests/test_package_integrity.py`](tests/test_package_integrity.py) | 17 | The offline wheels match `CHECKSUMS.sha256`, and its detached GPG signature verifies against the shipped key, and fails once a digest is changed |
 | [`tests/test_release_1_4_2.py`](tests/test_release_1_4_2.py) | 19 | The 1.4.2 changes: key material held in wipeable `bytearray`, `secure_clear` refusing `bytes`, core dumps disabled before any command, one directory per share set under `shares/` |

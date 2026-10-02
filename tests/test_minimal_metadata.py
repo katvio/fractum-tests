@@ -13,10 +13,9 @@ Two behaviours are pinned here that are not obviously intended, and both are
 marked so they show up rather than being quietly frozen as correct:
 
   - the label is echoed at encrypt time and then dropped (katvio/fractum#32);
-  - a minimal share set with a threshold above five can be neither decrypted nor
-    reused via --existing-shares, because the absent total_shares field falls
-    back to a fixed 5. This is still the case in 1.4.2; 2.0.0 falls back to the
-    threshold instead. The tests carry @unittest.expectedFailure until then.
+  - a minimal share set has no total_shares field. Up to 1.4.1 the readers fell
+    back to a fixed 5, so a threshold above five could be neither decrypted nor
+    reused via --existing-shares. Since 1.4.2 they fall back to the threshold.
 """
 
 import json
@@ -285,23 +284,20 @@ class TestHighThresholdInDefaultMode(_CliInTempDir):
         self.assertEqual(result.exit_code, 0, result.output)
         self.assertEqual((self.tmp_dir / "vault.txt").read_bytes(), self.original)
 
-    @unittest.expectedFailure
     def test_six_of_nine_is_recoverable(self):
         """A 6-of-9 backup taken with the default settings must be readable.
 
-        It is not, in 1.4.2: minimal shares do not carry total_shares, the reader
-        falls back to 5, which is below the threshold, and decrypt answers "No
-        compatible shares found". Any scheme above 5-of-N is unreadable by the
-        tool that produced it. Fixed in 2.0.0, where the fallback lands on the
-        threshold. Remove the marker in the commit that brings the fix here.
+        It was not, up to 1.4.1: minimal shares do not carry total_shares, the
+        reader fell back to 5, which is below the threshold, and decrypt answered
+        "No compatible shares found". Fixed in 1.4.2, where the fallback lands on
+        the threshold.
         """
         result = self._encrypt_and_decrypt(threshold=6, shares=9)
         self.assertEqual(result.exit_code, 0, result.output)
         self.assertEqual((self.tmp_dir / "vault.txt").read_bytes(), self.original)
 
-    @unittest.expectedFailure
     def test_a_threshold_well_above_the_old_fallback_also_works(self):
-        """Guards the boundary rather than one value: 5 is the fallback."""
+        """Guards the boundary rather than one value: 5 was the old fallback."""
         result = self._encrypt_and_decrypt(threshold=8, shares=10)
         self.assertEqual(result.exit_code, 0, result.output)
         self.assertEqual((self.tmp_dir / "vault.txt").read_bytes(), self.original)
@@ -347,15 +343,14 @@ class TestReusingMinimalShares(_CliInTempDir):
         result = self._encrypt_then_reuse(threshold=3, shares=5)
         self.assertIn("no label", result.output)
 
-    @unittest.expectedFailure
     def test_reuse_works_when_the_threshold_exceeds_five(self):
         """Reusing a 6-of-10 set taken in the default mode must work.
 
-        It does not, in 1.4.2. Minimal shares carry threshold but not
+        It did not, up to 1.4.1. Minimal shares carry threshold but not
         total_shares, and both ShareMetadata.from_share_info and the reader in
-        commands.py fall back to a fixed 5. ShareManager(6, 5) is then rejected,
-        two lines after the command has printed the correct total of 10. Fixed in
-        2.0.0; remove the marker with the fix.
+        commands.py fell back to a fixed 5. ShareManager(6, 5) was then rejected,
+        two lines after the command had printed the correct total of 10. Both
+        fall back to the threshold since 1.4.2.
         """
         result = self._encrypt_then_reuse(threshold=6, shares=10)
         self.assertEqual(result.exit_code, 0, result.output)

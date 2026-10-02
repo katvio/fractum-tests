@@ -104,16 +104,20 @@ class TestFromShareInfoFallbacks(unittest.TestCase):
         m = ShareMetadata.from_share_info({"share_index": 1, "share_key": "x"})
         self.assertEqual(m.threshold, 3)
 
-    def test_total_shares_falls_back_to_five_when_absent(self):
-        """⚠️ Same, and this one fires on the DEFAULT format: minimal shares
-        write `threshold` but not `total_shares`. A 7-of-9 set read back
-        through this path becomes 7-of-5, which then fails validate() — the
-        defect already recorded for `--existing-shares` reuse."""
+    def test_total_shares_falls_back_to_the_threshold_when_absent(self):
+        """The fallback lands on the threshold, and that fixes a real defect.
+
+        It used to be a fixed 5, which fires on the DEFAULT format since minimal
+        shares write `threshold` but not `total_shares`. A 7-of-9 set read back
+        through this path became 7-of-5 and failed validate(), so any scheme with
+        a threshold above 5 could not be decrypted or reused by the tool that
+        produced it. The field only has to satisfy the total >= threshold check;
+        reconstruction never reads it.
+        """
         m = ShareMetadata.from_share_info(
             {"share_index": 1, "share_key": "x", "threshold": 7})
-        self.assertEqual(m.total_shares, 5)
-        with self.assertRaises(ValueError):
-            m.validate()
+        self.assertEqual(m.total_shares, 7)
+        m.validate()  # must not raise
 
     def test_an_explicit_total_is_preferred_over_the_fallback(self):
         """A share that does record the count keeps it."""

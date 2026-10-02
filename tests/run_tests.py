@@ -24,6 +24,13 @@ if platform.system() == "Windows":
         pass
     os.environ["PYTHONIOENCODING"] = "utf-8"
 
+# The suites run under this script, not under pytest, so tests/conftest.py is
+# never collected. Its version shim is still needed: the macOS and Windows
+# runners only offer Python 3.12.10, and every test that goes through the CLI
+# would stop on the 3.12.11 guard. Importing it applies the same patch.
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import conftest  # noqa: E402,F401
+
 # ANSI color codes
 GREEN = "\033[92m"
 RED = "\033[91m"

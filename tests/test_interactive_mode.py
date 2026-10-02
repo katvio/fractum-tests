@@ -222,15 +222,18 @@ class TestGuidedEncryptWithExistingShares(_InteractiveInTempDir):
             z.extract(name, out)
             return out / name
 
-    def test_reusing_a_minimal_share_set_takes_total_from_the_file_count(self):
-        """⚠️ The fallback is `total_shares = len(share_files)`, and the default
-        (minimal) format does not write `total_shares`. So the number of files
-        sitting in the directory decides the parameter — move one out and the
-        guided mode silently picks a different total.
+    def test_reusing_a_minimal_share_set_takes_total_from_the_threshold(self):
+        """The fallback is the threshold written in the share, no longer the
+        number of files in the directory.
 
-        This test does not claim the behaviour is wrong. It pins it, because it
-        is invisible from the prompts: the summary prints "Total shares: N"
-        with no indication that N was counted rather than read."""
+        Counting files made the parameter depend on whatever sat there: moving a
+        share changed the announced total, and a 3-of-5 set with one share
+        present became a 3-of-1 that the sharing layer then refused. The
+        threshold travels with the share.
+
+        The total is only indicative: it has to satisfy total >= threshold, and
+        reconstruction never reads it.
+        """
         shares_dir = self._make_share_set(threshold=3, total=5)
         share_json = self._share_json(shares_dir)
         loose = Path(self.tmp.name) / "loose"
@@ -251,8 +254,12 @@ class TestGuidedEncryptWithExistingShares(_InteractiveInTempDir):
                 "n", "n", "n",
             ],
         )
-        # One file in the directory, so the guided mode announces a total of 1.
-        self.assertIn("Total shares: 1", result.output, msg=result.output)
+        # The threshold read from the share, not the one file in the directory.
+        self.assertIn("Total shares: 3", result.output, msg=result.output)
+
+        # The failure that follows names the missing count: one share of three.
+        self.assertIn("Insufficient number of shares: 1 < 3", result.output,
+                      msg=result.output)
 
     def test_a_directory_without_any_share_file_is_reported_not_swallowed(self):
         """The "no valid share files found" path returns False through the

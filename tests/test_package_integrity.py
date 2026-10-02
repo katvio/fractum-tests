@@ -185,45 +185,58 @@ class TestReleaseSignature(unittest.TestCase):
             SIGNING_KEY.read_text(encoding="utf-8", errors="replace"),
         )
 
+    @staticmethod
+    def _gpg_in(workdir: str, *args: str) -> subprocess.CompletedProcess:
+        """Run gpg inside workdir with relative paths only.
+
+        Git for Windows ships an MSYS gpg that reads a native C:\\... path given
+        to --homedir as relative and fails with "keyblock resource ... No such
+        file or directory". Copying the inputs next to a relative homedir works
+        the same on every platform."""
+        return subprocess.run(
+            ["gpg", "--batch", "--homedir", "gnupg", *args],
+            cwd=workdir,
+            capture_output=True,
+            text=True,
+        )
+
+    def _prepare(self, workdir: str, checksums_text: str) -> None:
+        Path(workdir, "gnupg").mkdir(mode=0o700)
+        shutil.copy(SIGNING_KEY, Path(workdir, "key.asc"))
+        shutil.copy(SIGNATURE, Path(workdir, "CHECKSUMS.sha256.asc"))
+        Path(workdir, "CHECKSUMS.sha256").write_bytes(checksums_text.encode("utf-8"))
+
     @unittest.skipUnless(shutil.which("gpg"), "gpg is not installed")
     def test_signature_verifies_against_the_shipped_key(self):
         """Import the shipped key into a throwaway keyring and verify. A throwaway
         keyring, so that a key already trusted on the test machine cannot make a
         bad signature pass."""
-        with tempfile.TemporaryDirectory() as home:
-            gpg = ["gpg", "--batch", "--homedir", home]
-            imported = subprocess.run(
-                gpg + ["--import", str(SIGNING_KEY)], capture_output=True, text=True
-            )
+        with tempfile.TemporaryDirectory() as workdir:
+            self._prepare(workdir, CHECKSUMS.read_bytes().decode("utf-8"))
+            imported = self._gpg_in(workdir, "--import", "key.asc")
             self.assertEqual(imported.returncode, 0, imported.stderr)
-            verified = subprocess.run(
-                gpg + ["--verify", str(SIGNATURE), str(CHECKSUMS)],
-                capture_output=True,
-                text=True,
+            verified = self._gpg_in(
+                workdir, "--verify", "CHECKSUMS.sha256.asc", "CHECKSUMS.sha256"
             )
             self.assertEqual(verified.returncode, 0, verified.stderr)
             self.assertIn("Good signature", verified.stderr)
 
     @unittest.skipUnless(shutil.which("gpg"), "gpg is not installed")
     def test_a_modified_checksums_file_fails_verification(self):
-        """The counterpart: one changed digest must break the signature. Without
-        it, the test above would also pass for a verification that accepts
-        anything."""
-        with tempfile.TemporaryDirectory() as home:
-            gpg = ["gpg", "--batch", "--homedir", home]
-            subprocess.run(gpg + ["--import", str(SIGNING_KEY)], capture_output=True)
-            tampered = Path(home) / "CHECKSUMS.sha256"
-            content = CHECKSUMS.read_text(encoding="utf-8")
-            first = content[0]
-            tampered.write_text(
-                ("0" if first != "0" else "1") + content[1:], encoding="utf-8"
-            )
-            verified = subprocess.run(
-                gpg + ["--verify", str(SIGNATURE), str(tampered)],
-                capture_output=True,
-                text=True,
+        """The counterpart: one changed digest must break the signature. The
+        import is asserted too, so that a keyring that never loaded the key
+        cannot make this test pass for the wrong reason."""
+        content = CHECKSUMS.read_bytes().decode("utf-8")
+        tampered = ("0" if content[0] != "0" else "1") + content[1:]
+        with tempfile.TemporaryDirectory() as workdir:
+            self._prepare(workdir, tampered)
+            imported = self._gpg_in(workdir, "--import", "key.asc")
+            self.assertEqual(imported.returncode, 0, imported.stderr)
+            verified = self._gpg_in(
+                workdir, "--verify", "CHECKSUMS.sha256.asc", "CHECKSUMS.sha256"
             )
             self.assertNotEqual(verified.returncode, 0, verified.stderr)
+            self.assertIn("BAD signature", verified.stderr)
 
     def test_placeholder_is_not_mistaken_for_a_signature(self):
         """Whatever happens, the placeholder must never be named .asc, or tooling
