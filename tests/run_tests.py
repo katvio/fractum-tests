@@ -24,6 +24,13 @@ if platform.system() == "Windows":
         pass
     os.environ["PYTHONIOENCODING"] = "utf-8"
 
+# The suites run under this script, not under pytest, so tests/conftest.py is
+# never collected. Its version shim is still needed: the macOS and Windows
+# runners only offer Python 3.12.10, and every test that goes through the CLI
+# would stop on the 3.12.11 guard. Importing it applies the same patch.
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import conftest  # noqa: E402,F401
+
 # ANSI color codes
 GREEN = "\033[92m"
 RED = "\033[91m"
@@ -116,7 +123,8 @@ def run_tests():
             else:
                 print_result(
                     False,
-                    f"{test_file}: FAILED ({len(test_result.failures)} failures, {len(test_result.errors)} errors)",
+                    f"{test_file}: FAILED ({len(test_result.failures)} failures, "
+                    f"{len(test_result.errors)} errors)",
                 )
 
         except Exception as e:
@@ -161,7 +169,8 @@ def run_tests():
                     )
                 else:
                     print(
-                        f"{RED}- {file_name}: {result['failures']} failures, {result['errors']} errors{RESET}"
+                        f"{RED}- {file_name}: {result['failures']} failures, "
+                        f"{result['errors']} errors{RESET}"
                     )
 
     overall_success = results["fail"] == 0

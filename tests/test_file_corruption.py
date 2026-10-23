@@ -16,8 +16,6 @@ message. No random bytes — every corruption is reproducible.
   [N bytes: ciphertext]
 """
 
-import base64
-import hashlib
 import json
 import tempfile
 import unittest
@@ -74,7 +72,8 @@ class FileCorruptionBase(unittest.TestCase):
         return p
 
     def _expect_error(self, path: Path, *keywords) -> str:
-        """Assert decrypt raises ValueError and that its message contains at least one keyword."""
+        """Assert decrypt raises ValueError and that its message contains at least
+        one keyword."""
         out = self.tmp_dir / f"out_{path.stem}.bin"
         with self.assertRaises(ValueError) as ctx:
             self.encryptor.decrypt_file(str(path), str(out))
@@ -177,7 +176,8 @@ class TestMetadataLengthBoundaries(FileCorruptionBase):
         self._expect_error(p, "too large")
 
     def test_metadata_length_65536_reads_metadata(self):
-        """metadata_length = 65536 (at the guard limit) is allowed; corrupt JSON raises parse error."""
+        """metadata_length = 65536 (at the guard limit) is allowed; corrupt JSON
+        raises parse error."""
         p = self.tmp_dir / "meta_len_65536.enc"
         with open(p, "wb") as f:
             f.write((65536).to_bytes(4, "big"))
@@ -293,7 +293,8 @@ class TestMetadataContentTampering(FileCorruptionBase):
     """Metadata bytes altered while keeping metadata_length correct."""
 
     def test_unknown_version_raises_incompatible_error_naming_version(self):
-        """version field set to '9.9.9' → error names both expected and found versions."""
+        """version field set to '9.9.9' → error names both expected and found
+        versions."""
         meta = json.loads(self.meta_bytes.decode())
         meta["version"] = "9.9.9"
         bad_meta = json.dumps(meta).encode()

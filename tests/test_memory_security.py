@@ -13,7 +13,6 @@ Covers:
 """
 
 import base64
-import gc
 import os
 import platform
 import sys
@@ -29,10 +28,8 @@ from fixtures import (
     PAYROLL_EXPORT,
 )
 
-from src.config import VERSION
 from src.crypto import FileEncryptor
-from src.crypto.memory import SecureContext, SecureMemory
-from src.shares import ShareManager
+from src.crypto.memory import SecureMemory
 from src.utils import get_enhanced_random_bytes
 
 # ── mlock — Linux /proc verification ─────────────────────────────────────────
@@ -58,20 +55,23 @@ class TestMlockLinux(unittest.TestCase):
         self.assertGreaterEqual(vmlck, 0, "/proc/self/status must contain a VmLck line")
 
     def test_secure_bytes_does_not_crash_mlock(self):
-        """secure_bytes() calls _mlock internally — must not raise even if mlock fails."""
+        """secure_bytes() calls _mlock internally — must not raise even if mlock
+        fails."""
         buf = SecureMemory.secure_bytes(512)
         self.assertIsInstance(buf, bytearray)
         self.assertEqual(len(buf), 512)
         SecureMemory.secure_clear(buf)
 
     def test_mlock_with_large_buffer_does_not_crash(self):
-        """_mlock on a 64 KB buffer must not raise (mlock silently fails if RLIMIT hit)."""
+        """_mlock on a 64 KB buffer must not raise (mlock silently fails if RLIMIT
+        hit)."""
         buf = bytearray(65536)
         SecureMemory._mlock(buf)  # no-op on RLIMIT, must not raise
         SecureMemory._munlock(buf)
 
     def test_mlock_vmlck_increases_or_stays_same(self):
-        """After secure_bytes(4096), VmLck must not decrease (may stay same if RLIMIT = 0)."""
+        """After secure_bytes(4096), VmLck must not decrease (may stay same if RLIMIT
+        = 0)."""
         if platform.system() != "Linux":
             self.skipTest("Only on Linux")
         before = self._vmlck_kb()
@@ -83,11 +83,11 @@ class TestMlockLinux(unittest.TestCase):
         )
 
     def test_munlock_called_after_secure_context_exit(self):
-        """_munlock must be called when SecureContext exits (VmLck must not increase net)."""
+        """_munlock must be called when SecureContext exits (VmLck must not increase
+        net)."""
         if platform.system() != "Linux":
             self.skipTest("Only on Linux")
-        before = self._vmlck_kb()
-        with SecureMemory.secure_context(4096) as buf:
+        with SecureMemory.secure_context(4096):
             after_enter = self._vmlck_kb()
         after_exit = self._vmlck_kb()
         # VmLck after exit must be ≤ VmLck after enter (munlock released the pages)
@@ -102,7 +102,8 @@ class TestMlockLinux(unittest.TestCase):
 
 
 class TestSecureClearCompleteness(unittest.TestCase):
-    """secure_clear must zero every byte regardless of buffer size or external references."""
+    """secure_clear must zero every byte regardless of buffer size or external
+    references."""
 
     def test_secure_clear_zeros_all_bytes(self):
         """Every byte of a bytearray must be 0 after secure_clear."""
@@ -148,7 +149,7 @@ class TestSecureClearCompleteness(unittest.TestCase):
         """Buffer must be all-zero after normal SecureContext exit."""
         captured = None
         with SecureMemory.secure_context(32) as buf:
-            buf[:] = b"jwt-secret:prod2025@katvio.io!!!"
+            buf[:] = b"jwt-secret:prod2025@acme.example"
             captured = buf
         self.assertTrue(all(b == 0 for b in captured))
 
@@ -173,10 +174,12 @@ class TestSecureClearCompleteness(unittest.TestCase):
 
 
 class TestKeyNotInTraceback(unittest.TestCase):
-    """Key bytes must be unreachable after SecureContext exits, even via traceback locals."""
+    """Key bytes must be unreachable after SecureContext exits, even via traceback
+    locals."""
 
     def test_buffer_referenced_in_traceback_frame_is_zeroed(self):
-        """After secure_context exits via exception, traceback locals must show zero buffer."""
+        """After secure_context exits via exception, traceback locals must show zero
+        buffer."""
         captured_tb = None
         captured_buf = None
 
@@ -201,12 +204,13 @@ class TestKeyNotInTraceback(unittest.TestCase):
                 if isinstance(val, bytearray) and len(val) == 32:
                     self.assertTrue(
                         all(b == 0 for b in val),
-                        f"Frame local {name!r} still contains non-zero bytes after context exit",
+                        f"Frame local {name!r} still contains non-zero bytes after "
+                        f"context exit",
                     )
 
     def test_key_not_in_exception_str_after_secure_context(self):
         """The exception message must not contain the key bytes as hex or base64."""
-        sentinel = b"KATVIO_PROD_SECRET_KEY_2025_v2_!"  # 32 bytes, unique pattern
+        sentinel = b"ACME_PROD_SECRET_KEY_2025_v2_!!!"  # 32 bytes, unique pattern
         sentinel_hex = sentinel.hex()
         sentinel_b64 = base64.b64encode(sentinel).decode()
 
@@ -260,7 +264,6 @@ class TestKeyNotInErrorMessages(unittest.TestCase):
             raw = bytearray(f.read())
 
         # Flip tag bytes (nonce=16, metadata embedded)
-        import json
         import struct
 
         with open(self.enc, "rb") as f:

@@ -1,6 +1,15 @@
 [tool.ruff]
 target-version = "py312"
 line-length = 88
+# src/ is a byte-for-byte mirror of katvio/fractum. Linting or reformatting it
+# here would create drift with upstream, so it is excluded on purpose. Style
+# issues in that tree belong in the main repository.
+extend-exclude = ["src"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I"]
+
+[tool.ruff.lint.per-file-ignores]
+# Fixtures are verbatim sample documents (vault exports, PEM blocks, CSV rows).
+# Rewrapping them would change the data under test.
+"tests/fixtures.py" = ["E501"]

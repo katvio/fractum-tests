@@ -9,7 +9,6 @@ import unittest
 from fixtures import (
     BITWARDEN_VAULT_EXPORT,
     ENV_CREDENTIALS,
-    HARDWARE_WALLET_SEED,
     QUARTERLY_REPORT,
 )
 
@@ -65,7 +64,8 @@ class TestShareManager(unittest.TestCase):
         self.label = "bitwarden_backup_jan_2025"
         self.manager = ShareManager(self.threshold, self.total_shares)
         log_info(
-            f"Created ShareManager with threshold={self.threshold}, total_shares={self.total_shares}"
+            f"Created ShareManager with threshold={self.threshold}, "
+            f"total_shares={self.total_shares}"
         )
 
     def test_share_generation_reconstruction(self):
@@ -128,11 +128,13 @@ class TestShareManager(unittest.TestCase):
                 f"Reconstruction failed with shares at indices {random_indices}",
             )
             log_success(
-                f"Combination {i + 1}: Successfully reconstructed with shares at indices {random_indices}"
+                f"Combination {i + 1}: Successfully reconstructed with shares at "
+                f"indices {random_indices}"
             )
 
     def test_threshold_enforcement(self):
-        """Verify threshold enforcement (confirm reconstruction fails with k-1 shares)."""
+        """Verify threshold enforcement (confirm reconstruction fails with k-1
+        shares)."""
         log_header("Testing threshold enforcement")
         # Generate shares
         log_info("Generating shares from test secret")
@@ -141,7 +143,8 @@ class TestShareManager(unittest.TestCase):
         # Try to reconstruct with insufficient shares (threshold - 1)
         insufficient_shares = shares[: self.threshold - 1]
         log_info(
-            f"Attempting reconstruction with {len(insufficient_shares)} shares (below threshold)"
+            f"Attempting reconstruction with {len(insufficient_shares)} shares (below "
+            f"threshold)"
         )
 
         # Should raise a ValueError when trying to combine insufficient shares
@@ -177,14 +180,17 @@ class TestShareManager(unittest.TestCase):
         # FIXED: Verify corrupted shares by testing individual scenarios
         log_info("Testing validation with corrupted shares")
         # Create corrupted shares
-        corrupted_shares = []
-        for idx, share in shares[: self.threshold]:
-            # Create a corrupted copy of each share
-            corrupted_share = bytearray(share)
-            # Modify a random byte
-            corrupt_pos = random.randint(0, len(corrupted_share) - 1)
-            corrupted_share[corrupt_pos] = (corrupted_share[corrupt_pos] + 1) % 256
-            corrupted_shares.append((idx, bytes(corrupted_share)))
+        # One share, one byte in its first 16-byte half. Corrupting a random byte
+        # in every share failed 1 run in 200 (measured): with all three shares
+        # altered, the compared bytes sometimes still matched the secret. One
+        # altered share changes the first half of the reconstruction, which lies
+        # entirely inside the compared range; 0 failures in 1000 runs.
+        corrupted_shares = list(shares[: self.threshold])
+        idx, share = corrupted_shares[0]
+        corrupted_share = bytearray(share)
+        corrupt_pos = random.randint(0, 15)
+        corrupted_share[corrupt_pos] ^= 0x01
+        corrupted_shares[0] = (idx, bytes(corrupted_share))
 
         # Try reconstructing with the corrupted shares
         log_info("Attempting reconstruction with corrupted shares")
@@ -219,7 +225,8 @@ class TestShareManager(unittest.TestCase):
         log_info("Attempting reconstruction with mixed shares from different secrets")
         mixed_shares = shares1[:2] + shares2[2 : self.threshold]
 
-        # This should fail or return an incorrect value, not revealing either original secret
+        # This should fail or return an incorrect value, not revealing either original
+        # secret
         try:
             mixed_result = self.manager.combine_shares(mixed_shares)
             # Ensure the result doesn't match either secret
@@ -389,7 +396,8 @@ class TestFileEncryptor(unittest.TestCase):
             log_success(f"Roundtrip passed for {name} ({len(content)} bytes)")
 
     def test_empty_file_encrypt_raises_or_decrypts_empty(self):
-        """Encrypting an empty file must either round-trip cleanly or raise a clear ValueError.
+        """Encrypting an empty file must either round-trip cleanly or raise a clear
+        ValueError.
 
         AES-256-GCM supports zero-length plaintext, but the current implementation
         raises 'No encrypted data found' on decrypt. This test documents the behavior
@@ -610,7 +618,8 @@ class TestFileEncryptor(unittest.TestCase):
         log_success("Correctly rejected invalid key size")
 
     def test_custom_metadata_preserved(self):
-        """Verify custom fields (e.g. share_set_id) passed to encrypt_file survive in the .enc header."""
+        """Verify custom fields (e.g. share_set_id) passed to encrypt_file survive in
+        the .enc header."""
         log_header("Testing custom metadata preservation")
 
         metadata = {
@@ -665,18 +674,23 @@ class TestSecureMemory(unittest.TestCase):
         log_info("Test data initialized")
 
     def test_secure_clear_bytes(self):
-        """Test secure clearing of bytes."""
-        log_header("Testing secure clearing of bytes")
-        # FIXED: bytes are immutable, so we can't directly test clearing
-        # The function might try to delete the variable but our test
-        # retains the reference. Just verify the function runs without error.
-        data_copy = self.test_bytes
+        """bytes must be refused, not accepted with nothing happening.
 
-        # Clear the data
+        This test used to assert only that no exception was raised, with a comment
+        explaining that bytes are immutable so clearing cannot be checked. That
+        contract was satisfied by a call that wiped a throwaway copy and left the
+        original intact, which is what four live call sites on key material were
+        doing. secure_clear now refuses bytes outright.
+        """
+        log_header("Testing that bytes are refused rather than silently ignored")
+        original = self.test_bytes
+
         log_info("Clearing bytes object")
-        SecureMemory.secure_clear(data_copy)
-        log_success("Bytes clearing completed without error")
-        # Test passes if no exception is raised
+        with self.assertRaises(TypeError):
+            SecureMemory.secure_clear(original)
+        self.assertEqual(original, self.test_bytes,
+                         "bytes must be left untouched: they cannot be wiped")
+        log_success("bytes refused, original intact")
 
     def test_secure_clear_bytearray(self):
         """Test secure clearing of bytearray."""
