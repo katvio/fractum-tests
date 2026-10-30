@@ -161,8 +161,8 @@ Full guide: **[fractum.katvio.com/contributing](https://fractum.katvio.com/contr
 ## License
 
 Apache License 2.0, see [LICENSE](LICENSE). The Fractum and Katvio names and
-logos are trademarks of S.A.S.U. Katvio and are not covered by that grant; the
-trademark policy is included at the end of the license file.
+logos are not covered by that grant (section 6); the terms for using them are in
+[TRADEMARK.md](TRADEMARK.md).
 
 ---
 
